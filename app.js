@@ -81,31 +81,10 @@ let drawers = [];
 let medicines = [];
 
 
+
 // ===============================
 // GOOGLE LOGIN
 // ===============================
-
-loginBtn?.addEventListener("click", async () => {
-
-  try {
-
-    await signInWithRedirect(auth, provider);
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert("Login error: " + error.message);
-
-  }
-
-});
-
-
-// ===============================
-// LOGOUT
-// ===============================
-
 loginBtn?.addEventListener("click", async () => {
   try {
     await setPersistence(auth, browserLocalPersistence);
@@ -115,6 +94,20 @@ loginBtn?.addEventListener("click", async () => {
     alert("Google login error: " + error.message);
   }
 });
+
+
+// ===============================
+// LOGOUT
+// ===============================
+logoutBtn?.addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Logout error:", error);
+    alert("Logout error: " + error.message);
+  }
+});
+
 
 
 // ===============================
