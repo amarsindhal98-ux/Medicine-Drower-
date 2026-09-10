@@ -7,10 +7,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   onAuthStateChanged,
-  signOut
+  signOut,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 import {
@@ -49,6 +50,10 @@ const app = initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
 const db = getFirestore(app);
+setPersistence(auth, browserLocalPersistence)
+  .catch((error) => {
+    console.error("Persistence error:", error);
+  });
 
 const provider = new GoogleAuthProvider();
 
@@ -101,51 +106,20 @@ loginBtn?.addEventListener("click", async () => {
 // LOGOUT
 // ===============================
 
-logoutBtn?.addEventListener("click", async () => {
-
+loginBtn?.addEventListener("click", async () => {
   try {
-
-    await signOut(auth);
-
-    drawers = [];
-    medicines = [];
-
-    renderDrawers();
-
-    alert("Logout ho gaya.");
-
+    await setPersistence(auth, browserLocalPersistence);
+    await signInWithPopup(auth, provider);
   } catch (error) {
-
-    console.error(error);
-
+    console.error("Google login error:", error);
+    alert("Google login error: " + error.message);
   }
-
 });
 
 
 // ===============================
 // REDIRECT LOGIN RESULT
 // ===============================
-
-getRedirectResult(auth)
-  .then((result) => {
-
-    if (result?.user) {
-
-      console.log("Google login successful");
-
-    }
-
-  })
-  .catch((error) => {
-
-    console.error("Login error:", error);
-
-    alert("Google login error: " + error.message);
-
-  });
-
-
 // ===============================
 // AUTH STATE
 // ===============================
