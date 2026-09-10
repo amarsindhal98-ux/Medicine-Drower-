@@ -80,8 +80,6 @@ let currentUser = null;
 let drawers = [];
 let medicines = [];
 
-
-
 // ===============================
 // GOOGLE LOGIN
 // ===============================
@@ -107,8 +105,6 @@ logoutBtn?.addEventListener("click", async () => {
     alert("Logout error: " + error.message);
   }
 });
-
-
 
 // ===============================
 // REDIRECT LOGIN RESULT
