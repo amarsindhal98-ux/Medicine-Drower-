@@ -600,143 +600,327 @@ function renderDrawers() {
 // ===============================
 // ADD MEDICINE
 // ===============================
+// ===============================
+// MEDICINE MODAL + PHOTO
+// ===============================
 
-async function addMedicine(drawerId) {
+const medicineModal = document.getElementById("medicineModal");
+const closeMedicineModal = document.getElementById("closeMedicineModal");
+const medicineIdInput = document.getElementById("medicineId");
+const medicineNameInput = document.getElementById("medicineName");
+const medicineCompanyInput = document.getElementById("medicineCompany");
+const medicineSaltInput = document.getElementById("medicineSalt");
+const medicineImageInput = document.getElementById("medicineImage");
+const imagePreview = document.getElementById("imagePreview");
+const saveMedicineBtn = document.getElementById("saveMedicineBtn");
 
-  if (!currentUser) return;
-
-
-  const name = prompt("Medicine ka naam:");
-
-  if (!name || !name.trim()) return;
-
-
-  const company = prompt("Company:");
-
-  const salt = prompt("Salt / Composition:");
-
-
-  let image = "";
-
-
-  const imageUrl = prompt(
-    "Agar photo ka URL hai to paste karo, warna Cancel dabao:"
-  );
+let editingMedicine = null;
+let medicineDrawerId = null;
 
 
-  if (imageUrl) {
+// ===============================
+// COMPRESS IMAGE
+// ===============================
 
-    image = imageUrl.trim();
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
 
-  }
+    if (!file || !file.type.startsWith("image/")) {
+      reject(new Error("Please image file select karo."));
+      return;
+    }
 
+    const reader = new FileReader();
 
-  try {
+    reader.onload = (event) => {
 
-    const medicineDoc = await addDoc(medicinesRef(), {
+      const img = new Image();
 
-      name: name.trim(),
+      img.onload = () => {
 
-      company: company?.trim() || "",
+        const maxSize = 900;
 
-      salt: salt?.trim() || "",
+        let width = img.width;
+        let height = img.height;
 
-      drawerId: drawerId,
+        if (width > height && width > maxSize) {
+          height = Math.round(height * maxSize / width);
+          width = maxSize;
+        }
 
-      image: image,
+        if (height >= width && height > maxSize) {
+          width = Math.round(width * maxSize / height);
+          height = maxSize;
+        }
 
-      createdAt: Date.now()
+        const canvas = document.createElement("canvas");
 
-    });
+        canvas.width = width;
+        canvas.height = height;
 
+        const ctx = canvas.getContext("2d");
 
-    medicines.push({
+        ctx.drawImage(
+          img,
+          0,
+          0,
+          width,
+          height
+        );
 
-      id: medicineDoc.id,
+        let dataUrl = canvas.toDataURL(
+          "image/jpeg",
+          0.68
+        );
 
-      name: name.trim(),
+        // Safety check for Firestore document size
+        if (dataUrl.length > 850000) {
+          dataUrl = canvas.toDataURL(
+            "image/jpeg",
+            0.52
+          );
+        }
 
-      company: company?.trim() || "",
+        if (dataUrl.length > 950000) {
+          reject(
+            new Error(
+              "Photo bahut badi hai. Please smaller photo select karo."
+            )
+          );
+          return;
+        }
 
-      salt: salt?.trim() || "",
+        resolve(dataUrl);
 
-      drawerId: drawerId,
+      };
 
-      image: image,
+      img.onerror = () => {
+        reject(new Error("Photo read nahi ho paayi."));
+      };
 
-      createdAt: Date.now()
+      img.src = event.target.result;
 
-    });
+    };
 
+    reader.onerror = () => {
+      reject(new Error("Photo read nahi ho paayi."));
+    };
 
-    renderDrawers();
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert("Medicine save nahi hui: " + error.message);
-
-  }
-
+    reader.readAsDataURL(file);
+  });
 }
 
 
 // ===============================
-// EDIT MEDICINE
+// OPEN ADD MEDICINE
 // ===============================
 
-async function editMedicine(medicine) {
+function addMedicine(drawerId) {
 
-  const name = prompt(
-    "Medicine name:",
-    medicine.name
-  );
+  if (!currentUser) {
+    alert("Pehle Google se Sign in karo.");
+    return;
+  }
 
-  if (!name || !name.trim()) return;
+  editingMedicine = null;
+  medicineDrawerId = drawerId;
+
+  medicineIdInput.value = "";
+  medicineNameInput.value = "";
+  medicineCompanyInput.value = "";
+  medicineSaltInput.value = "";
+
+  medicineImageInput.value = "";
+
+  imagePreview.src = "";
+  imagePreview.classList.add("hidden");
+
+  medicineModal?.classList.remove("hidden");
+}
 
 
-  const company = prompt(
-    "Company:",
-    medicine.company || ""
-  );
+// ===============================
+// OPEN EDIT MEDICINE
+// ===============================
+
+function editMedicine(medicine) {
+
+  if (!currentUser) return;
+
+  editingMedicine = medicine;
+  medicineDrawerId = medicine.drawerId;
+
+  medicineIdInput.value = medicine.id || "";
+
+  medicineNameInput.value = medicine.name || "";
+  medicineCompanyInput.value = medicine.company || "";
+  medicineSaltInput.value = medicine.salt || "";
+
+  medicineImageInput.value = "";
+
+  if (medicine.image) {
+
+    imagePreview.src = medicine.image;
+    imagePreview.classList.remove("hidden");
+
+  } else {
+
+    imagePreview.src = "";
+    imagePreview.classList.add("hidden");
+
+  }
+
+  medicineModal?.classList.remove("hidden");
+}
 
 
-  const salt = prompt(
-    "Salt / Composition:",
-    medicine.salt || ""
-  );
+// ===============================
+// PHOTO PREVIEW
+// ===============================
 
+medicineImageInput?.addEventListener("change", () => {
+
+  const file = medicineImageInput.files?.[0];
+
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = (event) => {
+
+    imagePreview.src = event.target.result;
+    imagePreview.classList.remove("hidden");
+
+  };
+
+  reader.readAsDataURL(file);
+
+});
+
+
+// ===============================
+// CLOSE MEDICINE MODAL
+// ===============================
+
+closeMedicineModal?.addEventListener("click", () => {
+
+  medicineModal?.classList.add("hidden");
+
+});
+
+
+// ===============================
+// SAVE MEDICINE
+// ===============================
+
+saveMedicineBtn?.addEventListener("click", async () => {
+
+  if (!currentUser) {
+    alert("Pehle Google se Sign in karo.");
+    return;
+  }
+
+  const name = medicineNameInput.value.trim();
+
+  if (!name) {
+    alert("Medicine ka naam likho.");
+    return;
+  }
+
+  const company = medicineCompanyInput.value.trim();
+
+  const salt = medicineSaltInput.value.trim();
+
+  const selectedFile =
+    medicineImageInput.files?.[0];
+
+  saveMedicineBtn.disabled = true;
+  saveMedicineBtn.textContent = "⏳ Saving...";
 
   try {
 
-    await setDoc(
-      doc(
-        db,
-        "users",
-        currentUser.uid,
-        "medicines",
-        medicine.id
-      ),
-      {
+    let image = editingMedicine?.image || "";
 
-        name: name.trim(),
+    // New photo selected
+    if (selectedFile) {
 
-        company: company?.trim() || "",
+      image = await compressImage(selectedFile);
 
-        salt: salt?.trim() || ""
-
-      },
-      { merge: true }
-    );
+    }
 
 
-    medicine.name = name.trim();
+    // ===============================
+    // EDIT EXISTING MEDICINE
+    // ===============================
 
-    medicine.company = company?.trim() || "";
+    if (editingMedicine) {
 
-    medicine.salt = salt?.trim() || "";
+      await setDoc(
+        doc(
+          db,
+          "users",
+          currentUser.uid,
+          "medicines",
+          editingMedicine.id
+        ),
+        {
+          name: name,
+          company: company,
+          salt: salt,
+          image: image
+        },
+        { merge: true }
+      );
 
+      editingMedicine.name = name;
+      editingMedicine.company = company;
+      editingMedicine.salt = salt;
+      editingMedicine.image = image;
+
+    }
+
+
+    // ===============================
+    // ADD NEW MEDICINE
+    // ===============================
+
+    else {
+
+      const medicineDoc = await addDoc(
+        medicinesRef(),
+        {
+          name: name,
+          company: company,
+          salt: salt,
+          drawerId: medicineDrawerId,
+          image: image,
+          createdAt: Date.now()
+        }
+      );
+
+      medicines.push({
+        id: medicineDoc.id,
+        name: name,
+        company: company,
+        salt: salt,
+        drawerId: medicineDrawerId,
+        image: image,
+        createdAt: Date.now()
+      });
+
+    }
+
+
+    // Close modal
+    medicineModal?.classList.add("hidden");
+
+    editingMedicine = null;
+    medicineDrawerId = null;
+
+    medicineImageInput.value = "";
+
+    imagePreview.src = "";
+    imagePreview.classList.add("hidden");
 
     renderDrawers();
 
@@ -744,9 +928,19 @@ async function editMedicine(medicine) {
 
     console.error(error);
 
-    alert("Update error: " + error.message);
+    alert(
+      "Medicine save nahi hui:\n" +
+      error.message
+    );
+
+  } finally {
+
+    saveMedicineBtn.disabled = false;
+    saveMedicineBtn.textContent = "💾 Save Medicine";
 
   }
+
+});
 
 }
 
