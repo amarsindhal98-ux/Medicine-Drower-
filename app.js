@@ -1,5 +1,5 @@
 // ===============================
-// FIREBASE IMPORTS
+// MEDICINE DRAWER - FIREBASE APP
 // ===============================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
@@ -7,9 +7,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged
+  signInWithRedirect,
+  getRedirectResult,
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 import {
@@ -32,7 +33,6 @@ import {
 const firebaseConfig = {
   apiKey: "AIzaSyBrOYuu6HPbe4VFinShhU_v__qpbfupBkk",
   authDomain: "medicine-drower.firebaseapp.com",
-  databaseURL: "https://medicine-drower-default-rtdb.firebaseio.com",
   projectId: "medicine-drower",
   storageBucket: "medicine-drower.firebasestorage.app",
   messagingSenderId: "829676157004",
@@ -54,19 +54,6 @@ const provider = new GoogleAuthProvider();
 
 
 // ===============================
-// APP STATE
-// ===============================
-
-let currentUser = null;
-let drawers = [];
-let medicines = [];
-let editingDrawerId = null;
-let editingMedicineId = null;
-let selectedDrawerId = null;
-let selectedImageData = null;
-
-
-// ===============================
 // ELEMENTS
 // ===============================
 
@@ -76,44 +63,34 @@ const logoutBtn = document.getElementById("logoutBtn");
 const searchInput = document.getElementById("searchInput");
 const searchResults = document.getElementById("searchResults");
 
-const drawerContainer = document.getElementById("drawerContainer");
 const addDrawerBtn = document.getElementById("addDrawerBtn");
+const drawerContainer = document.getElementById("drawerContainer");
 
-const drawerModal = document.getElementById("drawerModal");
-const drawerName = document.getElementById("drawerName");
-const saveDrawerBtn = document.getElementById("saveDrawerBtn");
-const closeDrawerModal = document.getElementById("closeDrawerModal");
 
-const medicineModal = document.getElementById("medicineModal");
-const medicineId = document.getElementById("medicineId");
-const medicineName = document.getElementById("medicineName");
-const medicineCompany = document.getElementById("medicineCompany");
-const medicineSalt = document.getElementById("medicineSalt");
-const medicineImage = document.getElementById("medicineImage");
-const imagePreview = document.getElementById("imagePreview");
-const saveMedicineBtn = document.getElementById("saveMedicineBtn");
-const closeMedicineModal = document.getElementById("closeMedicineModal");
+// ===============================
+// APP DATA
+// ===============================
 
-const imageViewer = document.getElementById("imageViewer");
-const zoomedImage = document.getElementById("zoomedImage");
-const closeImageViewer = document.getElementById("closeImageViewer");
+let currentUser = null;
+let drawers = [];
+let medicines = [];
 
 
 // ===============================
 // GOOGLE LOGIN
 // ===============================
 
-loginBtn.addEventListener("click", async () => {
+loginBtn?.addEventListener("click", async () => {
 
   try {
 
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
 
   } catch (error) {
 
     console.error(error);
 
-    alert("Login failed: " + error.message);
+    alert("Login error: " + error.message);
 
   }
 
@@ -124,21 +101,49 @@ loginBtn.addEventListener("click", async () => {
 // LOGOUT
 // ===============================
 
-logoutBtn.addEventListener("click", async () => {
+logoutBtn?.addEventListener("click", async () => {
 
   try {
 
     await signOut(auth);
 
+    drawers = [];
+    medicines = [];
+
+    renderDrawers();
+
+    alert("Logout ho gaya.");
+
   } catch (error) {
 
     console.error(error);
 
-    alert("Logout failed.");
-
   }
 
 });
+
+
+// ===============================
+// REDIRECT LOGIN RESULT
+// ===============================
+
+getRedirectResult(auth)
+  .then((result) => {
+
+    if (result?.user) {
+
+      console.log("Google login successful");
+
+    }
+
+  })
+  .catch((error) => {
+
+    console.error("Login error:", error);
+
+    alert("Google login error: " + error.message);
+
+  });
 
 
 // ===============================
@@ -151,26 +156,20 @@ onAuthStateChanged(auth, async (user) => {
 
   if (user) {
 
-    loginBtn.classList.add("hidden");
-    logoutBtn.classList.remove("hidden");
+    loginBtn?.classList.add("hidden");
+    logoutBtn?.classList.remove("hidden");
 
-    await loadAllData();
+    await loadData();
 
   } else {
 
-    loginBtn.classList.remove("hidden");
-    logoutBtn.classList.add("hidden");
+    loginBtn?.classList.remove("hidden");
+    logoutBtn?.classList.add("hidden");
 
     drawers = [];
     medicines = [];
 
     renderDrawers();
-
-    searchResults.innerHTML = `
-      <div class="empty-message">
-        🔐 Sign in to see your medicine drawers.
-      </div>
-    `;
 
   }
 
@@ -178,28 +177,19 @@ onAuthStateChanged(auth, async (user) => {
 
 
 // ===============================
-// FIRESTORE COLLECTIONS
+// FIRESTORE REFERENCES
 // ===============================
 
-function drawersCollection() {
+function drawersRef() {
 
-  return collection(
-    db,
-    "users",
-    currentUser.uid,
-    "drawers"
-  );
+  return collection(db, "users", currentUser.uid, "drawers");
 
 }
 
-function medicinesCollection() {
 
-  return collection(
-    db,
-    "users",
-    currentUser.uid,
-    "medicines"
-  );
+function medicinesRef() {
+
+  return collection(db, "users", currentUser.uid, "medicines");
 
 }
 
@@ -208,51 +198,37 @@ function medicinesCollection() {
 // LOAD DATA
 // ===============================
 
-async function loadAllData() {
+async function loadData() {
 
   if (!currentUser) return;
 
   try {
 
-    const drawerSnapshot = await getDocs(
-      query(drawersCollection(), orderBy("createdAt"))
-    );
+    const drawerSnapshot = await getDocs(drawersRef());
 
-    drawers = drawerSnapshot.docs.map(item => ({
-      id: item.id,
-      ...item.data()
+    drawers = drawerSnapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data()
     }));
+
+
+    const medicineSnapshot = await getDocs(medicinesRef());
+
+    medicines = medicineSnapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+
+
+    renderDrawers();
 
   } catch (error) {
 
     console.error(error);
 
-    drawers = [];
+    alert("Data load nahi ho raha: " + error.message);
 
   }
-
-
-  try {
-
-    const medicineSnapshot = await getDocs(
-      query(medicinesCollection(), orderBy("createdAt"))
-    );
-
-    medicines = medicineSnapshot.docs.map(item => ({
-      id: item.id,
-      ...item.data()
-    }));
-
-  } catch (error) {
-
-    console.error(error);
-
-    medicines = [];
-
-  }
-
-
-  renderDrawers();
 
 }
 
@@ -261,98 +237,51 @@ async function loadAllData() {
 // ADD DRAWER
 // ===============================
 
-addDrawerBtn.addEventListener("click", () => {
+addDrawerBtn?.addEventListener("click", async () => {
 
   if (!currentUser) {
 
-    alert("पहले Google से Sign in करो।");
+    alert("Pehle Google se Sign in karo.");
 
     return;
 
   }
 
-  editingDrawerId = null;
 
-  drawerName.value = "";
+  const name = prompt("Drawer ka naam likho:");
 
-  drawerModal.classList.remove("hidden");
-
-});
-
-
-// ===============================
-// CLOSE DRAWER MODAL
-// ===============================
-
-closeDrawerModal.addEventListener("click", () => {
-
-  drawerModal.classList.add("hidden");
-
-});
-
-
-// ===============================
-// SAVE DRAWER
-// ===============================
-
-saveDrawerBtn.addEventListener("click", async () => {
-
-  const name = drawerName.value.trim();
-
-  if (!name) {
-
-    alert("Drawer का नाम लिखो।");
-
-    return;
-
-  }
-
-  if (!currentUser) return;
+  if (!name || !name.trim()) return;
 
 
   try {
 
-    if (editingDrawerId) {
+    const drawerDoc = await addDoc(drawersRef(), {
 
-      await setDoc(
-        doc(
-          db,
-          "users",
-          currentUser.uid,
-          "drawers",
-          editingDrawerId
-        ),
-        {
-          name: name,
-          updatedAt: Date.now()
-        },
-        {
-          merge: true
-        }
-      );
+      name: name.trim(),
 
-    } else {
+      createdAt: Date.now()
 
-      await addDoc(
-        drawersCollection(),
-        {
-          name: name,
-          createdAt: Date.now()
-        }
-      );
-
-    }
+    });
 
 
-    drawerModal.classList.add("hidden");
+    drawers.push({
 
-    await loadAllData();
+      id: drawerDoc.id,
+
+      name: name.trim(),
+
+      createdAt: Date.now()
+
+    });
+
+
+    renderDrawers();
 
   } catch (error) {
 
     console.error(error);
 
-    alert("Drawer save नहीं हुआ: " + error.message);
+    alert("Drawer save nahi hua: " + error.message);
 
   }
 
@@ -360,260 +289,334 @@ saveDrawerBtn.addEventListener("click", async () => {
 
 
 // ===============================
-// EDIT DRAWER
+// RENDER DRAWERS
 // ===============================
 
-window.editDrawer = function(id) {
+function renderDrawers() {
 
-  const drawer = drawers.find(item => item.id === id);
+  if (!drawerContainer) return;
 
-  if (!drawer) return;
-
-  editingDrawerId = id;
-
-  drawerName.value = drawer.name;
-
-  drawerModal.classList.remove("hidden");
-
-};
+  drawerContainer.innerHTML = "";
 
 
-// ===============================
-// DELETE DRAWER
-// ===============================
+  if (!currentUser) {
 
-window.deleteDrawer = async function(id) {
+    drawerContainer.innerHTML = `
+      <div class="empty-state">
+        🔐 Google Sign in karke apne drawers dekho.
+      </div>
+    `;
 
-  const drawer = drawers.find(item => item.id === id);
+    return;
 
-  if (!drawer) return;
-
-
-  const ok = confirm(
-    `क्या "${drawer.name}" drawer delete करना है?\n\nइस drawer की medicines भी delete हो जाएंगी।`
-  );
-
-  if (!ok) return;
+  }
 
 
-  try {
+  if (drawers.length === 0) {
 
-    const drawerMedicines =
-      medicines.filter(item => item.drawerId === id);
+    drawerContainer.innerHTML = `
+      <div class="empty-state">
+        🗄️ Abhi koi drawer nahi hai.<br>
+        <small>+ Add Drawer दबाकर पहला drawer बनाओ.</small>
+      </div>
+    `;
 
+    return;
 
-    for (const medicine of drawerMedicines) {
-
-      await deleteDoc(
-        doc(
-          db,
-          "users",
-          currentUser.uid,
-          "medicines",
-          medicine.id
-        )
-      );
-
-    }
+  }
 
 
-    await deleteDoc(
-      doc(
-        db,
-        "users",
-        currentUser.uid,
-        "drawers",
-        id
-      )
+  drawers.forEach(drawer => {
+
+    const medicinesInDrawer = medicines.filter(
+      medicine => medicine.drawerId === drawer.id
     );
 
 
-    await loadAllData();
+    const drawerBox = document.createElement("div");
 
-  } catch (error) {
-
-    console.error(error);
-
-    alert("Delete नहीं हुआ: " + error.message);
-
-  }
-
-};
+    drawerBox.className = "drawer-card";
 
 
-// ===============================
-// ADD MEDICINE
-// ===============================
+    drawerBox.innerHTML = `
 
-window.addMedicine = function(drawerId) {
+      <div class="drawer-title">
 
-  if (!currentUser) {
+        <h3>🗄️ ${escapeHtml(drawer.name)}</h3>
 
-    alert("पहले Google से Sign in करो।");
+        <div class="drawer-actions">
 
-    return;
+          <button class="add-med-btn">
+            ➕ Medicine
+          </button>
 
-  }
+          <button class="edit-drawer-btn">
+            ✏️
+          </button>
 
+          <button class="delete-drawer-btn">
+            🗑️
+          </button>
 
-  selectedDrawerId = drawerId;
+        </div>
 
-  editingMedicineId = null;
-
-  medicineId.value = "";
-
-  medicineName.value = "";
-  medicineCompany.value = "";
-  medicineSalt.value = "";
-
-  medicineImage.value = "";
-
-  selectedImageData = null;
-
-  imagePreview.src = "";
-  imagePreview.classList.add("hidden");
-
-  medicineModal.classList.remove("hidden");
-
-};
+      </div>
 
 
-// ===============================
-// CLOSE MEDICINE MODAL
-// ===============================
+      <div class="medicine-list">
 
-closeMedicineModal.addEventListener("click", () => {
+        ${
+          medicinesInDrawer.length === 0
 
-  medicineModal.classList.add("hidden");
+          ? `<p class="empty-medicine">
+               Is drawer me abhi medicine nahi hai.
+             </p>`
 
-});
+          : medicinesInDrawer.map(medicine => `
 
+              <div class="medicine-card">
 
-// ===============================
-// IMAGE COMPRESSION
-// ===============================
-
-medicineImage.addEventListener("change", async (event) => {
-
-  const file = event.target.files[0];
-
-  if (!file) return;
-
-
-  try {
-
-    selectedImageData = await compressImage(file);
-
-    imagePreview.src = selectedImageData;
-
-    imagePreview.classList.remove("hidden");
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert("Photo process नहीं हो सकी।");
-
-  }
-
-});
+                ${
+                  medicine.image
+                  ? `<img
+                       src="${medicine.image}"
+                       class="medicine-image"
+                       data-image="${medicine.image}"
+                     >`
+                  : `<div class="no-image">💊</div>`
+                }
 
 
-// ===============================
-// COMPRESS PHOTO
-// ===============================
+                <div class="medicine-info">
 
-function compressImage(file) {
+                  <h4>${escapeHtml(medicine.name || "")}</h4>
 
-  return new Promise((resolve, reject) => {
+                  <p>
+                    Company:
+                    ${escapeHtml(medicine.company || "-")}
+                  </p>
 
-    const reader = new FileReader();
+                  <p>
+                    Salt:
+                    ${escapeHtml(medicine.salt || "-")}
+                  </p>
 
-    reader.onload = () => {
-
-      const img = new Image();
-
-      img.onload = () => {
-
-        let width = img.width;
-        let height = img.height;
-
-        const maxSize = 1000;
+                </div>
 
 
-        if (width > maxSize || height > maxSize) {
+                <div class="medicine-actions">
 
-          if (width > height) {
+                  <button
+                    class="edit-med-btn"
+                    data-id="${medicine.id}">
+                    ✏️
+                  </button>
 
-            height = Math.round(
-              height * maxSize / width
+                  <button
+                    class="delete-med-btn"
+                    data-id="${medicine.id}">
+                    🗑️
+                  </button>
+
+                </div>
+
+              </div>
+
+          `).join("")
+        }
+
+      </div>
+
+    `;
+
+
+    // ADD MEDICINE
+
+    drawerBox
+      .querySelector(".add-med-btn")
+      ?.addEventListener("click", () => {
+
+        addMedicine(drawer.id);
+
+      });
+
+
+    // EDIT DRAWER
+
+    drawerBox
+      .querySelector(".edit-drawer-btn")
+      ?.addEventListener("click", async () => {
+
+        const newName = prompt(
+          "Drawer ka naya naam:",
+          drawer.name
+        );
+
+        if (!newName || !newName.trim()) return;
+
+
+        await setDoc(
+          doc(db, "users", currentUser.uid, "drawers", drawer.id),
+          {
+            name: newName.trim()
+          },
+          { merge: true }
+        );
+
+
+        drawer.name = newName.trim();
+
+        renderDrawers();
+
+      });
+
+
+    // DELETE DRAWER
+
+    drawerBox
+      .querySelector(".delete-drawer-btn")
+      ?.addEventListener("click", async () => {
+
+        const medicinesToDelete = medicines.filter(
+          m => m.drawerId === drawer.id
+        );
+
+
+        const ok = confirm(
+          `"${drawer.name}" drawer delete karna hai?\n\nIske andar ki medicines bhi delete hongi.`
+        );
+
+
+        if (!ok) return;
+
+
+        try {
+
+          await deleteDoc(
+            doc(db, "users", currentUser.uid, "drawers", drawer.id)
+          );
+
+
+          for (const medicine of medicinesToDelete) {
+
+            await deleteDoc(
+              doc(
+                db,
+                "users",
+                currentUser.uid,
+                "medicines",
+                medicine.id
+              )
             );
-
-            width = maxSize;
-
-          } else {
-
-            width = Math.round(
-              width * maxSize / height
-            );
-
-            height = maxSize;
 
           }
 
-        }
 
-
-        const canvas = document.createElement("canvas");
-
-        canvas.width = width;
-        canvas.height = height;
-
-
-        const ctx = canvas.getContext("2d");
-
-        ctx.drawImage(
-          img,
-          0,
-          0,
-          width,
-          height
-        );
-
-
-        const dataUrl = canvas.toDataURL(
-          "image/jpeg",
-          0.70
-        );
-
-
-        // Firestore document size safety check
-        if (dataUrl.length > 700000) {
-
-          reject(
-            new Error("Image is too large.")
+          drawers = drawers.filter(
+            d => d.id !== drawer.id
           );
 
-          return;
+
+          medicines = medicines.filter(
+            m => m.drawerId !== drawer.id
+          );
+
+
+          renderDrawers();
+
+        } catch (error) {
+
+          console.error(error);
+
+          alert("Delete error: " + error.message);
 
         }
 
-
-        resolve(dataUrl);
-
-      };
+      });
 
 
-      img.onerror = reject;
+    // EDIT MEDICINE
 
-      img.src = reader.result;
+    drawerBox
+      .querySelectorAll(".edit-med-btn")
+      .forEach(button => {
 
-    };
+        button.addEventListener("click", () => {
+
+          const medicine = medicines.find(
+            m => m.id === button.dataset.id
+          );
+
+          if (medicine) {
+
+            editMedicine(medicine);
+
+          }
+
+        });
+
+      });
 
 
-    reader.onerror = reject;
+    // DELETE MEDICINE
 
-    reader.readAsDataURL(file);
+    drawerBox
+      .querySelectorAll(".delete-med-btn")
+      .forEach(button => {
+
+        button.addEventListener("click", async () => {
+
+          const medicine = medicines.find(
+            m => m.id === button.dataset.id
+          );
+
+          if (!medicine) return;
+
+
+          if (!confirm(
+            `"${medicine.name}" delete karni hai?`
+          )) return;
+
+
+          await deleteDoc(
+            doc(
+              db,
+              "users",
+              currentUser.uid,
+              "medicines",
+              medicine.id
+            )
+          );
+
+
+          medicines = medicines.filter(
+            m => m.id !== medicine.id
+          );
+
+
+          renderDrawers();
+
+        });
+
+      });
+
+
+    // IMAGE CLICK / ZOOM
+
+    drawerBox
+      .querySelectorAll(".medicine-image")
+      .forEach(img => {
+
+        img.addEventListener("click", () => {
+
+          openImage(img.dataset.image);
+
+        });
+
+      });
+
+
+    drawerContainer.appendChild(drawerBox);
 
   });
 
@@ -621,39 +624,308 @@ function compressImage(file) {
 
 
 // ===============================
-// SAVE MEDICINE
+// ADD MEDICINE
 // ===============================
 
-saveMedicineBtn.addEventListener("click", async () => {
+async function addMedicine(drawerId) {
 
-  const name = medicineName.value.trim();
+  if (!currentUser) return;
 
-  if (!name) {
 
-    alert("Medicine का नाम लिखो।");
+  const name = prompt("Medicine ka naam:");
+
+  if (!name || !name.trim()) return;
+
+
+  const company = prompt("Company:");
+
+  const salt = prompt("Salt / Composition:");
+
+
+  let image = "";
+
+
+  const imageUrl = prompt(
+    "Agar photo ka URL hai to paste karo, warna Cancel dabao:"
+  );
+
+
+  if (imageUrl) {
+
+    image = imageUrl.trim();
+
+  }
+
+
+  try {
+
+    const medicineDoc = await addDoc(medicinesRef(), {
+
+      name: name.trim(),
+
+      company: company?.trim() || "",
+
+      salt: salt?.trim() || "",
+
+      drawerId: drawerId,
+
+      image: image,
+
+      createdAt: Date.now()
+
+    });
+
+
+    medicines.push({
+
+      id: medicineDoc.id,
+
+      name: name.trim(),
+
+      company: company?.trim() || "",
+
+      salt: salt?.trim() || "",
+
+      drawerId: drawerId,
+
+      image: image,
+
+      createdAt: Date.now()
+
+    });
+
+
+    renderDrawers();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Medicine save nahi hui: " + error.message);
+
+  }
+
+}
+
+
+// ===============================
+// EDIT MEDICINE
+// ===============================
+
+async function editMedicine(medicine) {
+
+  const name = prompt(
+    "Medicine name:",
+    medicine.name
+  );
+
+  if (!name || !name.trim()) return;
+
+
+  const company = prompt(
+    "Company:",
+    medicine.company || ""
+  );
+
+
+  const salt = prompt(
+    "Salt / Composition:",
+    medicine.salt || ""
+  );
+
+
+  try {
+
+    await setDoc(
+      doc(
+        db,
+        "users",
+        currentUser.uid,
+        "medicines",
+        medicine.id
+      ),
+      {
+
+        name: name.trim(),
+
+        company: company?.trim() || "",
+
+        salt: salt?.trim() || ""
+
+      },
+      { merge: true }
+    );
+
+
+    medicine.name = name.trim();
+
+    medicine.company = company?.trim() || "";
+
+    medicine.salt = salt?.trim() || "";
+
+
+    renderDrawers();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Update error: " + error.message);
+
+  }
+
+}
+
+
+// ===============================
+// SEARCH
+// ===============================
+
+searchInput?.addEventListener("input", () => {
+
+  const text = searchInput.value
+    .trim()
+    .toLowerCase();
+
+
+  if (!text) {
+
+    searchResults.innerHTML = "";
 
     return;
 
   }
 
-  if (!currentUser) return;
+
+  const results = medicines.filter(medicine => {
+
+    const name = (medicine.name || "").toLowerCase();
+
+    const company = (medicine.company || "").toLowerCase();
+
+    const salt = (medicine.salt || "").toLowerCase();
 
 
-  try {
+    return (
+      name.includes(text) ||
+      company.includes(text) ||
+      salt.includes(text)
+    );
 
-    const medicineData = {
-
-      name: name,
-
-      company: medicineCompany.value.trim(),
-
-      salt: medicineSalt.value.trim(),
-
-      drawerId: selectedDrawerId,
-
-      updatedAt: Date.now()
-
-    };
+  });
 
 
-    if (
+  if (results.length === 0) {
+
+    searchResults.innerHTML = `
+      <div class="search-result">
+        ❌ Medicine nahi mili.
+      </div>
+    `;
+
+    return;
+
+  }
+
+
+  searchResults.innerHTML = results.map(medicine => {
+
+    const drawer = drawers.find(
+      d => d.id === medicine.drawerId
+    );
+
+
+    return `
+
+      <div class="search-result">
+
+        <strong>
+          💊 ${escapeHtml(medicine.name)}
+        </strong>
+
+        <span>
+          📍 Drawer:
+          ${escapeHtml(drawer?.name || "Unknown")}
+        </span>
+
+      </div>
+
+    `;
+
+  }).join("");
+
+});
+
+
+// ===============================
+// IMAGE VIEWER
+// ===============================
+
+function openImage(src) {
+
+  let viewer = document.getElementById("imageViewer");
+
+  let image = document.getElementById("zoomedImage");
+
+
+  if (!viewer) {
+
+    viewer = document.createElement("div");
+
+    viewer.id = "imageViewer";
+
+    viewer.className = "image-viewer";
+
+
+    viewer.innerHTML = `
+
+      <div class="image-viewer-inner">
+
+        <button id="closeImageViewer">
+          ✕
+        </button>
+
+        <img id="zoomedImage">
+
+      </div>
+
+    `;
+
+
+    document.body.appendChild(viewer);
+
+
+    document
+      .getElementById("closeImageViewer")
+      .addEventListener("click", () => {
+
+        viewer.classList.remove("show");
+
+      });
+
+  }
+
+
+  image = document.getElementById("zoomedImage");
+
+  image.src = src;
+
+  viewer.classList.add("show");
+
+}
+
+
+// ===============================
+// HTML SAFETY
+// ===============================
+
+function escapeHtml(value) {
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+      }
