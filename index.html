@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💊 Medicine Drawer</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <header class="topbar">
+    <h1>💊 My Medical Drawer</h1>
+
+    <button id="loginBtn" class="login-btn">
+      🔐 Sign in with Google
+    </button>
+
+    <button id="logoutBtn" class="logout-btn hidden">
+      Logout
+    </button>
+  </header>
+
+  <main>
+
+    <!-- Search -->
+    <section class="search-section">
+      <input
+        type="search"
+        id="searchInput"
+        placeholder="🔍 Search medicine..."
+        autocomplete="off"
+      >
+
+      <div id="searchResults"></div>
+    </section>
+
+    <!-- Drawer controls -->
+    <section class="drawer-header">
+      <h2>🗄️ My Drawers</h2>
+
+      <button id="addDrawerBtn">
+        ➕ Add Drawer
+      </button>
+    </section>
+
+    <!-- Drawers will appear here -->
+    <section id="drawerContainer"></section>
+
+  </main>
+
+  <!-- Drawer Modal -->
+  <div id="drawerModal" class="modal hidden">
+
+    <div class="modal-box">
+
+      <button class="close-btn" id="closeDrawerModal">
+        ✕
+      </button>
+
+      <h2>🗄️ Add / Edit Drawer</h2>
+
+      <input
+        type="text"
+        id="drawerName"
+        placeholder="Drawer name"
+        maxlength="50"
+      >
+
+      <button id="saveDrawerBtn">
+        💾 Save Drawer
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- Medicine Modal -->
+  <div id="medicineModal" class="modal hidden">
+
+    <div class="modal-box">
+
+      <button class="close-btn" id="closeMedicineModal">
+        ✕
+      </button>
+
+      <h2>💊 Add / Edit Medicine</h2>
+
+      <input type="hidden" id="medicineId">
+
+      <input
+        type="text"
+        id="medicineName"
+        placeholder="Medicine name"
+        maxlength="100"
+      >
+
+      <input
+        type="text"
+        id="medicineCompany"
+        placeholder="Company"
+        maxlength="100"
+      >
+
+      <input
+        type="text"
+        id="medicineSalt"
+        placeholder="Salt / Composition"
+        maxlength="150"
+      >
+
+      <label class="photo-label">
+        📸 Medicine Photo
+      </label>
+
+      <input
+        type="file"
+        id="medicineImage"
+        accept="image/*"
+      >
+
+      <img
+        id="imagePreview"
+        class="image-preview hidden"
+        alt="Medicine preview"
+      >
+
+      <button id="saveMedicineBtn">
+        💾 Save Medicine
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- Image Viewer -->
+  <div id="imageViewer" class="image-viewer hidden">
+
+    <button id="closeImageViewer" class="viewer-close">
+      ✕
+    </button>
+
+    <img id="zoomedImage" alt="Medicine photo">
+
+  </div>
+
+  <!-- Firebase / App -->
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>
