@@ -897,7 +897,6 @@ saveMedicineBtn?.addEventListener("click", async () => {
         createdAt: Date.now()
       });
 
-    }
 
 
     // Close modal
