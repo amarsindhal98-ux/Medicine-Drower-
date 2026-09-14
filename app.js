@@ -398,17 +398,20 @@ function medicineCard(medicine) {
     <div class="medicine-card">
 
       ${
-        photo
-          ? `
-            <img
-              src="${photo}"
-              alt="${escapeHtml(medicine.name)}"
-              class="medicine-thumb"
-              data-image="${photo}">
-          `
-          : `
-            <div class="medicine-no-photo">💊</div>
-          `
+  photo
+    ? `
+      <button
+        type="button"
+        class="medicine-photo-btn"
+        data-image="${photo}"
+      >
+        📷 View Photo
+      </button>
+    `
+    : `
+      <div class="medicine-no-photo">💊</div>
+    `
+      }
       }
 
       <div class="medicine-info">
